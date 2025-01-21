@@ -12,4 +12,5 @@ func IndexRouter(api fiber.Router) {
 
 	// Add authentication-related routes
 	AuthRouter(api)
+	GameRouter(api)
 }

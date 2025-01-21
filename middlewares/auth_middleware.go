@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -43,7 +44,7 @@ func CheckAuth() fiber.Handler {
 		})
 
 		if err != nil {
-			fmt.Println("Token Parsing Error:", err)
+			log.Println("Token Parsing Error:", err)
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid or expired token",
 			})

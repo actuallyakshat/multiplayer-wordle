@@ -117,7 +117,7 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	if err := db.Create(&newUser).Error; err != nil {
-		fmt.Println("Error:", err)
+		log.Println("Error:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to register user",
 		})

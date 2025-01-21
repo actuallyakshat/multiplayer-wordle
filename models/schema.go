@@ -6,22 +6,23 @@ type Player struct {
 	gorm.Model
 	Username string `gorm:"uniqueIndex;not null" json:"username"`
 	Password string `gorm:"not null" json:"password"`
-	GameID   uint   `gorm:"not null" json:"game_id"` // Player can only be in one game at a time
+	GameID   uint   `gorm:"not null" json:"gameId"` // Player can only be in one game at a time
+	IsAdmin  bool   `gorm:"not null; default:false" json:"isAdmin"`
 }
 
 type Game struct {
 	gorm.Model
-	Word    string    `gorm:"not null" json:"word"`                   // Secret word
-	State   GameState `gorm:"not null" json:"state"`                  // Game state (in-progress, lobby)
+	Word    string    `gorm:"not null" json:"word"` // Secret word
+	State   GameState `gorm:"not null; default:lobby" json:"state"`
 	Players []Player  `gorm:"many2many:game_players;" json:"players"` // Many-to-many relation with players
 	Guesses []Guess   `gorm:"foreignkey:GameID" json:"guesses"`       // Guesses made during the game
 }
 
 type Guess struct {
 	gorm.Model
-	GameID    uint   `gorm:"not null" json:"game_id"`
-	PlayerID  uint   `gorm:"not null" json:"player_id"`
-	GuessWord string `gorm:"not null" json:"guess_word"`
+	GameID    uint   `gorm:"not null" json:"gameId"`
+	PlayerID  uint   `gorm:"not null" json:"playerId"`
+	GuessWord string `gorm:"not null" json:"guessWord"`
 	Feedback  string `gorm:"not null" json:"feedback"`
 }
 
