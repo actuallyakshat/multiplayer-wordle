@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
 func init() {
@@ -23,6 +24,7 @@ func main() {
 
 	api := app.Group("/api")
 
+	api.Use(logger.New())
 	api.Use(middlewares.CheckAuth())
 
 	routes.IndexRouter(api)
@@ -38,6 +40,14 @@ func main() {
 	app.Get("/ws/:gameID", websocket.New(func(c *websocket.Conn) {
 		websockets.Hub.HandleConnection(c)
 	}))
+
+	// Serve static files from the "build" directory
+	app.Static("/", "./client_build")
+
+	// Fallback to index.html for SPA routes
+	app.All("*", func(c *fiber.Ctx) error {
+		return c.SendFile("./client_build/index.html")
+	})
 
 	port := os.Getenv("PORT")
 
