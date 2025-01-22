@@ -5,6 +5,7 @@ import (
 	"log"
 	"multiplayer-wordle/initialisers"
 	"multiplayer-wordle/models"
+	"multiplayer-wordle/utils"
 	"multiplayer-wordle/websockets"
 	"strconv"
 	"strings"
@@ -258,6 +259,7 @@ func StartGame(c *fiber.Ctx) error {
 	game.State = models.GameState("in-progress")
 
 	// TODO: Set word of the game before starting
+	game.Word = utils.GetRandomWord()
 
 	if err := db.Save(&game).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -273,77 +275,28 @@ func StartGame(c *fiber.Ctx) error {
 	})
 }
 
-func DeleteGame(c *fiber.Ctx) error {
-	username, ok := c.Locals("username").(string)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized access",
-		})
-	}
+func DeleteGame(gameID int) bool {
 
 	db := initialisers.DB
 
-	var user models.Player
-	if err := db.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user",
-		})
-	}
-
-	gameID := c.Params("gameID")
 	game := models.Game{}
 	if err := db.Where("id = ?", gameID).Preload("Players").First(&game).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Game not found",
-			})
+			return false
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch game",
-		})
-	}
-
-	if game.State != models.GameState("lobby") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Game is not in lobby state",
-		})
-	}
-
-	var presentUser *models.Player
-	for _, player := range game.Players {
-		if player.Username == user.Username {
-			presentUser = &player
-			break
-		}
-	}
-	if presentUser == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "You are not in this game",
-		})
-	}
-
-	if !presentUser.IsAdmin {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "You are not the admin",
-		})
+		return false
 	}
 
 	// Set gameId of each player to 0 to indicate they are no longer in the game
 	if err := db.Table("players").Where("game_id = ?", game.ID).Update("game_id", 0).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update players",
-		})
+		return false
 	}
 
 	if err := db.Delete(&game).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to delete game",
-		})
+		return false
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Game deleted successfully",
-	})
+	return true
 }
 
 func LeaveGame(c *fiber.Ctx) error {
@@ -391,6 +344,7 @@ func LeaveGame(c *fiber.Ctx) error {
 
 	// Set gameId of the user to 0 to indicate they are no longer in the game
 	user.GameID = 0
+	user.IsAdmin = false
 	if err := db.Save(&user).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update user",
@@ -404,6 +358,46 @@ func LeaveGame(c *fiber.Ctx) error {
 		})
 	}
 
+	//remove user from game.players
+	for i, player := range game.Players {
+		if player.Username == user.Username {
+			game.Players = append(game.Players[:i], game.Players[i+1:]...)
+			break
+		}
+	}
+
+	//make the next user the admin
+	if len(game.Players) > 0 {
+		game.Players[0].IsAdmin = true
+		if err := db.Save(&game.Players[0]).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to update user as admin",
+			})
+		}
+	}
+
+	if len(game.Players) == 0 {
+		//delete game if no players left
+		deleteSuccess := DeleteGame(int(game.ID))
+		if !deleteSuccess {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to delete game",
+			})
+		} else {
+			log.Println("Game deleted successfully: ", game.ID)
+		}
+	}
+
+	if len(game.Players) == 1 {
+		game.State = models.GameState("lobby")
+		if err := db.Save(&game).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to update game status",
+			})
+		}
+		websockets.BroadcastGameOver(game)
+	}
+
 	websockets.BroadcastPlayerLeft(game)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -414,6 +408,9 @@ func LeaveGame(c *fiber.Ctx) error {
 
 func isValidGuess(guessWord, word string) bool {
 	//TODO: Implement validation logic
+
+	//exmaple: Actual word: apple ; guess word: attire
+
 	// letters := strings.Split(word, "")
 	// guessLetters := strings.Split(guessWord, "")
 
@@ -552,6 +549,9 @@ func GameOver(c *fiber.Ctx) error {
 			"error": "Failed to fetch game",
 		})
 	}
+
+	word := game.Word
+
 	if game.State != models.GameState("in-progress") {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Game is not in progress",
@@ -587,6 +587,7 @@ func GameOver(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Game over",
 		"game":    game,
+		"word":    word,
 	})
 
 }

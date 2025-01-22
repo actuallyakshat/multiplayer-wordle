@@ -1,3 +1,13 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.page-background {
+  @apply bg-gradient-to-b from-slate-900 to-slate-800 text-white;
+}
+
+.primary-btn {
+  @apply flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-8 py-2.5 text-white shadow-lg transition-colors hover:bg-emerald-600 hover:shadow-emerald-500/25 disabled:opacity-80 disabled:hover:bg-emerald-500 disabled:hover:shadow-none;
+}

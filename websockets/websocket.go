@@ -3,6 +3,7 @@ package websockets
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"multiplayer-wordle/initialisers"
 	"multiplayer-wordle/models"
 	"sync"
@@ -44,9 +45,16 @@ func (h *GameHub) HandleConnection(c *websocket.Conn) {
 	gameID := c.Params("gameID")
 	username := c.Query("username")
 
+	if gameID == "" || username == "" {
+		log.Printf("Missing required parameters: gameID=%s, username=%s", gameID, username)
+		c.Close()
+		return
+	}
+
 	// Convert gameID to uint
 	var game models.Game
 	if err := initialisers.DB.Where("id = ?", gameID).First(&game).Error; err != nil {
+		log.Printf("Error fetching game: %v\n", err)
 		c.Close()
 		return
 	}
@@ -59,6 +67,7 @@ func (h *GameHub) HandleConnection(c *websocket.Conn) {
 	}
 
 	// Add connection to hub
+	log.Println("New connection", conn)
 	h.addConnection(conn)
 
 	// Remove connection when function returns
@@ -70,7 +79,14 @@ func (h *GameHub) HandleConnection(c *websocket.Conn) {
 	// Listen for WebSocket messages
 	for {
 		messageType, _, err := c.ReadMessage()
-		if err != nil || messageType == websocket.CloseMessage {
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("Unexpected close error: %v", err)
+			}
+			break
+		}
+		if messageType == websocket.CloseMessage {
+			log.Printf("Received close message from %s in game %d", conn.Username, conn.GameID)
 			break
 		}
 	}
@@ -80,7 +96,10 @@ func (h *GameHub) HandleConnection(c *websocket.Conn) {
 func (h *GameHub) addConnection(conn Connection) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	h.connections[conn.GameID] = append(h.connections[conn.GameID], conn)
+	log.Printf("New connection from %s in game %d\n", conn.Username, conn.GameID)
+	log.Printf("Total connections in game with gameId %d are: %d\n", conn.GameID, len(h.connections))
 }
 
 // removeConnection removes a connection from the hub

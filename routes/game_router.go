@@ -14,6 +14,4 @@ func GameRouter(api fiber.Router) {
 	api.Patch("/game/:gameID/start", controllers.StartGame)
 	api.Post("/game/:gameID/guess", controllers.GuessWord)
 	api.Patch("/game/:gameId/gameover", controllers.GameOver)
-
-	api.Delete("/game/:gameID", controllers.DeleteGame)
 }
