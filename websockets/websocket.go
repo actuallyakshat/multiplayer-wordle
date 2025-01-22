@@ -145,6 +145,12 @@ func (h *GameHub) BroadcastToGame(gameID uint, messageType string, payload inter
 	}
 }
 
+type GameOverData struct {
+	Game   models.Game
+	Winner *models.Player
+	Word   string
+}
+
 // Convenience functions for broadcasting specific game events
 func BroadcastGameCreated(game models.Game) {
 	Hub.BroadcastToGame(game.ID, "game_created", game)
@@ -166,6 +172,6 @@ func BroadcastNewGuess(gameID uint, guess models.Guess) {
 	Hub.BroadcastToGame(gameID, "new_guess", guess)
 }
 
-func BroadcastGameOver(game models.Game) {
-	Hub.BroadcastToGame(game.ID, "game_over", game)
+func BroadcastGameOver(gameOver GameOverData) {
+	Hub.BroadcastToGame(gameOver.Game.ID, "game_over", gameOver)
 }

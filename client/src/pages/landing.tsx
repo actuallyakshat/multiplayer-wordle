@@ -1,16 +1,40 @@
 import { PlaySquare, Trophy, Users } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import Dialog from "../components/ui/dialog";
+import api from "../lib/axios";
 import { useAuth } from "../store/auth";
 
 function Landing() {
-  const [createLoading, setCreateLoading] = useState(false);
-  const [joinLoading, setJoinLoading] = useState(false);
-
-  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { user, isLoading, refreshUser } = useAuth();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user && !isLoading) {
+      setIsLoggedIn(false);
+    } else if (user && !isLoading) {
+      setIsLoggedIn(true);
+    }
+  }, [isLoading, user]);
+
+  async function createGameHandler() {
+    try {
+      setLoading(true);
+      const response = await api.post("/api/game");
+      console.log("Game created", response.data);
+      await refreshUser();
+
+      const gameId = response.data.gameID;
+      navigate(`/lobby/${gameId}`);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="page-background min-h-screen">
@@ -25,47 +49,46 @@ function Landing() {
             or join an existing one to start the word-guessing battle!
           </p>
 
-          {user?.gameId ? (
+          {isLoggedIn ? (
+            user?.gameId ? (
+              <button
+                className="primary-btn mx-auto mb-8"
+                onClick={() => navigate(`/game/${user.gameId}`)}
+              >
+                Return to game
+              </button>
+            ) : (
+              <div className="mb-16 flex flex-col justify-center gap-6 sm:flex-row">
+                <button
+                  disabled={loading}
+                  onClick={createGameHandler}
+                  className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-emerald-600 hover:shadow-emerald-500/25 disabled:opacity-80 disabled:hover:bg-emerald-500 disabled:hover:shadow-none"
+                >
+                  <PlaySquare className="h-5 w-5" />
+                  {loading ? "Creating Game..." : "Create Game"}
+                </button>
+
+                <Dialog
+                  isLoading={false}
+                  dialogTrigger={
+                    <button className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-slate-600">
+                      <Users className="h-5 w-5" />
+                      Join Game
+                    </button>
+                  }
+                  dialogContent={<JoinGameForm />}
+                />
+              </div>
+            )
+          ) : (
             <button
               className="primary-btn mx-auto mb-8"
-              onClick={() => navigate(`/game/${user.gameId}`)}
+              onClick={() => {
+                navigate("/register");
+              }}
             >
-              Return to game
+              Get started
             </button>
-          ) : (
-            <div className="mb-16 flex flex-col justify-center gap-6 sm:flex-row">
-              <Dialog
-                isLoading={createLoading}
-                dialogTrigger={
-                  <button className="flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-emerald-600 hover:shadow-emerald-500/25 disabled:opacity-80 disabled:hover:bg-emerald-500 disabled:hover:shadow-none">
-                    <PlaySquare className="h-5 w-5" />
-                    Create Game
-                  </button>
-                }
-                dialogContent={
-                  <CreateGameForm
-                    loading={createLoading}
-                    setLoading={setCreateLoading}
-                  />
-                }
-              />
-
-              <Dialog
-                isLoading={joinLoading}
-                dialogTrigger={
-                  <button className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-slate-600">
-                    <Users className="h-5 w-5" />
-                    Join Game
-                  </button>
-                }
-                dialogContent={
-                  <JoinGameForm
-                    loading={joinLoading}
-                    setLoading={setJoinLoading}
-                  />
-                }
-              />
-            </div>
           )}
         </div>
 
@@ -78,78 +101,32 @@ function Landing() {
 
 export default Landing;
 
-function CreateGameForm({
-  setLoading,
-  loading,
-}: {
-  setLoading: (loading: boolean) => void;
-  loading: boolean;
-}) {
-  return (
-    <form
-      className="flex flex-col gap-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setLoading(true);
-        new Promise((resolve) => {
-          setTimeout(resolve, 2000);
-        }).then(() => {
-          console.log("submitted");
-          setLoading(false);
-        });
-      }}
-    >
-      <h2 className="text-left text-2xl font-extrabold">Create new game</h2>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-left text-sm text-slate-400">Player Name</label>
-        <input
-          type="text"
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-medium text-white placeholder:text-sm placeholder:text-slate-400"
-          placeholder="Enter your name"
-          disabled={loading}
-        />
-      </div>
-      <button className="primary-btn font-medium" disabled={loading}>
-        {loading ? "Creating..." : "Create Game"}
-      </button>
-    </form>
-  );
-}
+function JoinGameForm() {
+  const navigate = useNavigate();
+  const [gameId, setGameId] = useState(0);
 
-function JoinGameForm({
-  setLoading,
-  loading,
-}: {
-  setLoading: (loading: boolean) => void;
-  loading: boolean;
-}) {
   return (
     <form
       className="flex flex-col gap-4"
       onSubmit={(e) => {
+        if (gameId <= 0) return;
         e.preventDefault();
-        setLoading(true);
-        new Promise((resolve) => {
-          setTimeout(resolve, 2000);
-        }).then(() => {
-          console.log("submitted");
-          setLoading(false);
-        });
+
+        navigate("/lobby/" + gameId);
       }}
     >
       <h2 className="text-left text-2xl font-extrabold">Join game</h2>
       <div className="flex flex-col gap-1.5">
         <label className="text-left text-sm text-slate-400">Game ID</label>
         <input
-          type="text"
+          type="number"
+          onChange={(e) => setGameId(parseInt(e.target.value))}
+          value={gameId}
           className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-medium text-white placeholder:text-sm placeholder:text-slate-400"
           placeholder="Enter game ID"
-          disabled={loading}
         />
       </div>
-      <button className="primary-btn font-medium" disabled={loading}>
-        {loading ? "Joining..." : "Join Game"}
-      </button>
+      <button className="primary-btn font-medium">Join Game</button>
     </form>
   );
 }

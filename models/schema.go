@@ -14,8 +14,8 @@ type Game struct {
 	gorm.Model
 	Word    string    `gorm:"not null" json:"word"` // Secret word
 	State   GameState `gorm:"not null; default:lobby" json:"state"`
-	Players []Player  `gorm:"many2many:game_players;" json:"players"` // Many-to-many relation with players
-	Guesses []Guess   `gorm:"foreignkey:GameID" json:"guesses"`       // Guesses made during the game
+	Players []Player  `gorm:"many2many:game_players;constraint:OnDelete:CASCADE;" json:"players"` // Many-to-many relation with players
+	Guesses []Guess   `gorm:"foreignkey:GameID;constraint:OnDelete:CASCADE;" json:"guesses"`      // Guesses made during the game
 }
 
 type Guess struct {
@@ -23,7 +23,7 @@ type Guess struct {
 	GameID    uint   `gorm:"not null" json:"gameId"`
 	PlayerID  uint   `gorm:"not null" json:"playerId"`
 	GuessWord string `gorm:"not null" json:"guessWord"`
-	Feedback  string `gorm:"not null" json:"feedback"`
+	Feedback  []byte `gorm:"not null" json:"feedback"`
 }
 
 // GameState type defines possible game states

@@ -395,7 +395,14 @@ func LeaveGame(c *fiber.Ctx) error {
 				"error": "Failed to update game status",
 			})
 		}
-		websockets.BroadcastGameOver(game)
+
+		gameOverData := websockets.GameOverData{
+			Game:   game,
+			Winner: nil,
+			Word:   game.Word,
+		}
+
+		websockets.BroadcastGameOver(gameOverData)
 	}
 
 	websockets.BroadcastPlayerLeft(game)
@@ -406,26 +413,40 @@ func LeaveGame(c *fiber.Ctx) error {
 
 }
 
-func isValidGuess(guessWord, word string) bool {
-	//TODO: Implement validation logic
+// returns boolean and feeback
+func isValidGuess(guessWord, word string) (bool, []byte) {
+	letters := strings.Split(word, "")
+	guessLetters := strings.Split(guessWord, "")
+	feedback := make([]byte, 5)
 
-	//exmaple: Actual word: apple ; guess word: attire
+	if guessWord == word {
+		feedback = []byte{2, 2, 2, 2, 2}
+		return true, feedback
+	}
 
-	// letters := strings.Split(word, "")
-	// guessLetters := strings.Split(guessWord, "")
+	// First pass: check for correct positions
+	for i := 0; i < 5; i++ {
+		if letters[i] == guessLetters[i] {
+			feedback[i] = 2
+			letters[i] = "" // Mark this letter as used
+		}
+	}
 
-	// if len(guessLetters) != len(letters) {
-	// 	return false
-	// }
+	// Second pass: check for present but wrong positions
+	for i := 0; i < 5; i++ {
+		if feedback[i] == 0 {
+			for j := 0; j < 5; j++ {
+				if guessLetters[i] == letters[j] {
+					feedback[i] = 1
+					letters[j] = "" // Mark this letter as used
+					break
+				}
+			}
+		}
+	}
 
-	// for i := range guessLetters {
-	// 	if guessLetters[i] != letters[i] {
-	// 		return false
-	// 	}
-	// }
-
-	log.Println(guessWord + " " + word)
-	return true
+	log.Println("Guess:", guessWord, "Word:", word, "Feedback:", feedback)
+	return false, feedback
 }
 
 func GuessWord(c *fiber.Ctx) error {
@@ -496,13 +517,21 @@ func GuessWord(c *fiber.Ctx) error {
 	}
 
 	// Check if the guess word is valid
-	log.Println(isValidGuess(body.GuessWord, game.Word))
+	isCorrect, feedback := isValidGuess(body.GuessWord, game.Word)
+	if isCorrect {
+		//Someone just won the game, broadcast the winner
+		if err := GameOver(game, user); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to end the game",
+			})
+		}
+	}
 
 	guess := models.Guess{
 		GameID:    game.ID,
 		PlayerID:  user.ID,
 		GuessWord: body.GuessWord,
-		Feedback:  "Incorrect",
+		Feedback:  feedback,
 	}
 
 	if err := db.Create(&guess).Error; err != nil {
@@ -519,75 +548,27 @@ func GuessWord(c *fiber.Ctx) error {
 	})
 }
 
-func GameOver(c *fiber.Ctx) error {
-	log.Println("GAME OVER")
-	username, ok := c.Locals("username").(string)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized access",
-		})
-	}
-
+func GameOver(game models.Game, player models.Player) error {
 	db := initialisers.DB
 
-	var user models.Player
-	if err := db.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user",
-		})
-	}
-
-	gameID := c.Params("gameID")
-	game := models.Game{}
-	if err := db.Where("id = ?", gameID).Preload("Players").First(&game).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Game not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch game",
-		})
-	}
-
-	word := game.Word
-
 	if game.State != models.GameState("in-progress") {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Game is not in progress",
-		})
-	}
-
-	// Check if the user is in the game
-	isUserPresent := false
-	for _, player := range game.Players {
-		if player.Username == user.Username {
-			isUserPresent = true
-			break
-		}
-	}
-
-	if !isUserPresent {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "You are not in this game",
-		})
+		return errors.New("game is not in progress")
 	}
 
 	game.State = models.GameState("lobby")
+	word := game.Word
 	game.Word = ""
 
 	if err := db.Save(&game).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update game status",
-		})
+		return errors.New("failed to update game status")
 	}
 
-	websockets.BroadcastGameOver(game)
+	gameOverData := websockets.GameOverData{
+		Game:   game,
+		Winner: &player,
+		Word:   word,
+	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Game over",
-		"game":    game,
-		"word":    word,
-	})
-
+	websockets.BroadcastGameOver(gameOverData)
+	return nil
 }
