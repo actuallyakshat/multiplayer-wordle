@@ -414,39 +414,38 @@ func LeaveGame(c *fiber.Ctx) error {
 }
 
 // returns boolean and feeback
-func isValidGuess(guessWord, word string) (bool, []byte) {
+func isValidGuess(guessWord, word string) (bool, string) {
 	letters := strings.Split(word, "")
 	guessLetters := strings.Split(guessWord, "")
-	feedback := make([]byte, 5)
+	feedback := []rune("00000")
 
 	if guessWord == word {
-		feedback = []byte{2, 2, 2, 2, 2}
-		return true, feedback
+		return true, "22222"
 	}
 
 	// First pass: check for correct positions
 	for i := 0; i < 5; i++ {
 		if letters[i] == guessLetters[i] {
-			feedback[i] = 2
+			feedback[i] = '2'
 			letters[i] = "" // Mark this letter as used
 		}
 	}
 
 	// Second pass: check for present but wrong positions
 	for i := 0; i < 5; i++ {
-		if feedback[i] == 0 {
+		if feedback[i] == '0' {
 			for j := 0; j < 5; j++ {
 				if guessLetters[i] == letters[j] {
-					feedback[i] = 1
-					letters[j] = "" // Mark this letter as used
+					feedback[i] = '1'
+					letters[j] = ""
 					break
 				}
 			}
 		}
 	}
 
-	log.Println("Guess:", guessWord, "Word:", word, "Feedback:", feedback)
-	return false, feedback
+	log.Println("Guess:", guessWord, "Word:", word, "Feedback:", string(feedback))
+	return false, string(feedback)
 }
 
 func GuessWord(c *fiber.Ctx) error {
@@ -486,7 +485,8 @@ func GuessWord(c *fiber.Ctx) error {
 	}
 
 	var body struct {
-		GuessWord string `json:"guessWord"`
+		GuessWord     string `json:"guessWord"`
+		AttemptNumber uint   `json:"attemptNumber"`
 	}
 
 	if err := c.BodyParser(&body); err != nil {
@@ -510,28 +510,45 @@ func GuessWord(c *fiber.Ctx) error {
 			break
 		}
 	}
+
 	if !isUserPresent {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "You are not in this game",
 		})
 	}
 
+	// Check if overlapping attempt number for user
+	for _, guess := range game.Guesses {
+		if guess.PlayerID == user.ID && guess.AttemptNumber == body.AttemptNumber {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "You have already made a guess with this attempt number",
+			})
+		}
+	}
+
 	// Check if the guess word is valid
 	isCorrect, feedback := isValidGuess(body.GuessWord, game.Word)
 	if isCorrect {
-		//Someone just won the game, broadcast the winner
+		// Someone just won the game, broadcast the winner
 		if err := GameOver(game, user); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to end the game",
 			})
 		}
+		// Return success response without saving the guess
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message":  "Congratulations! You've guessed the word correctly.",
+			"feedback": feedback,
+		})
 	}
 
+	// Save the guess only if it is not correct
 	guess := models.Guess{
-		GameID:    game.ID,
-		PlayerID:  user.ID,
-		GuessWord: body.GuessWord,
-		Feedback:  feedback,
+		GameID:        game.ID,
+		PlayerID:      user.ID,
+		GuessWord:     body.GuessWord,
+		Feedback:      feedback,
+		AttemptNumber: body.AttemptNumber,
 	}
 
 	if err := db.Create(&guess).Error; err != nil {
@@ -558,6 +575,12 @@ func GameOver(game models.Game, player models.Player) error {
 	game.State = models.GameState("lobby")
 	word := game.Word
 	game.Word = ""
+
+	log.Println("CLEARING GUESSES")
+
+	if err := db.Where("game_id = ?", game.ID).Delete(&models.Guess{}).Error; err != nil {
+		return errors.New("failed to clear guesses")
+	}
 
 	if err := db.Save(&game).Error; err != nil {
 		return errors.New("failed to update game status")

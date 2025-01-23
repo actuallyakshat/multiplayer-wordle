@@ -20,10 +20,11 @@ type Game struct {
 
 type Guess struct {
 	gorm.Model
-	GameID    uint   `gorm:"not null" json:"gameId"`
-	PlayerID  uint   `gorm:"not null" json:"playerId"`
-	GuessWord string `gorm:"not null" json:"guessWord"`
-	Feedback  []byte `gorm:"not null" json:"feedback"`
+	GameID        uint   `gorm:"not null" json:"gameId"`
+	PlayerID      uint   `gorm:"not null" json:"playerId"`
+	GuessWord     string `gorm:"not null" json:"guessWord"`
+	Feedback      string `gorm:"not null" json:"feedback"`
+	AttemptNumber uint   `gorm:"not null" json:"attemptNumber"`
 }
 
 // GameState type defines possible game states

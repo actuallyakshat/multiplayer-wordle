@@ -1,386 +1,299 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
 import api from "../lib/axios";
+import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../store/auth";
-import { useWebSocketMessage } from "../store/websocket";
 import { validateGuess } from "../lib/validateGuess";
+import { useWebSocketMessage } from "../store/websocket";
 
+const ATTEMPTS = 6;
 const WORD_LENGTH = 5;
-const MAX_ATTEMPTS = 6;
+const KEYBOARD = [
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+  ["Del", "z", "x", "c", "v", "b", "n", "m", "Enter"],
+];
 
 interface Guess {
-  id: string;
-  gameId: string;
+  feedback: string;
+  attemptNumber: number;
   playerId: string;
   guessWord: string;
-  feedback: number[];
-  createdAt: string;
 }
-
-interface Player {
-  id: string;
-  username: string;
-  guesses: Guess[];
-}
-
-interface GameState {
-  currentAttempt: number;
-  guesses: string[];
-  currentGuess: string;
-  usedLetters: {
-    [key: string]: "correct" | "present" | "absent" | undefined;
-  };
-  players: Player[];
-}
-
-const initialGameState: GameState = {
-  currentAttempt: 0,
-  guesses: Array(MAX_ATTEMPTS).fill(""),
-  currentGuess: "",
-  usedLetters: {},
-  players: [],
-};
 
 export default function GameScreen() {
-  const [gameState, setGameState] = useState<GameState>(initialGameState);
-  const { refreshUser, user, isLoading } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
+  const [guesses, setGuesses] = useState(Array(ATTEMPTS).fill("")); // Array of guesses, one for each attempt
+  const [feedback, setFeedback] = useState(Array(ATTEMPTS).fill(""));
   const { id } = useParams<{ id: string }>();
+  const [currentAttemptNumber, setCurrentAttemptNumber] = useState(0);
+  const [lettersUsed, setLettersUsed] = useState<string[]>([]);
 
-  const numericId = Number(id);
-  if (isNaN(numericId)) {
-    navigate("/not-found");
-  }
+  const { user, isLoading, refreshUser } = useAuth();
 
-  // Update game state when receiving new guesses
-  useWebSocketMessage("new_guess", (data: { guess: Guess }) => {
-    if (!data?.guess) return;
-
-    setGameState((prev) => {
-      const newPlayers = [...(prev.players || [])];
-      const playerIndex = newPlayers.findIndex(
-        (p) => p?.id === data.guess.playerId,
-      );
-
-      if (playerIndex !== -1) {
-        newPlayers[playerIndex] = {
-          ...newPlayers[playerIndex],
-          guesses: [...(newPlayers[playerIndex].guesses || []), data.guess],
-        };
-      }
-
-      // Update letter statuses for the current user's guesses
-      if (data.guess.playerId === user?.ID) {
-        const newUsedLetters = { ...(prev.usedLetters || {}) };
-        const guessWord = data.guess.guessWord.toUpperCase();
-
-        guessWord.split("").forEach((letter, index) => {
-          if (data.guess.feedback[index] === 2) {
-            newUsedLetters[letter] = "correct";
-          } else if (data.guess.feedback[index] === 1) {
-            newUsedLetters[letter] = "present";
-          } else {
-            if (!newUsedLetters[letter]) {
-              newUsedLetters[letter] = "absent";
-            }
-          }
-        });
-
-        const newGuesses = [...(prev.guesses || Array(MAX_ATTEMPTS).fill(""))];
-        newGuesses[prev.currentAttempt] = guessWord;
-
-        return {
-          ...prev,
-          players: newPlayers,
-          usedLetters: newUsedLetters,
-          guesses: newGuesses,
-          currentAttempt: (prev.currentAttempt || 0) + 1,
-          currentGuess: "",
-        };
-      }
-
-      return {
-        ...prev,
-        players: newPlayers,
-      };
-    });
-  });
-
-  useWebSocketMessage("player_joined", (data: { player: Player }) => {
-    if (!data?.player) return;
-
-    setGameState((prev) => ({
-      ...prev,
-      players: [...(prev.players || []), data.player],
-    }));
-  });
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user && !isLoading) {
       navigate("/login");
     }
-  }, [isLoading, user, navigate]);
-
-  useEffect(() => {
-    async function getGameDetails() {
-      if (!id) return;
-
-      try {
-        setLoading(true);
-        const response = await api.get(`/api/game/${id}`);
-        if (response.status === 200) {
-          const { game, players } = response.data;
-
-          if (game?.state === "lobby") {
-            navigate(`/lobby/${id}`);
-            return;
-          }
-
-          setGameState((prev) => ({
-            ...prev,
-            players: players || [],
-          }));
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    getGameDetails();
-  }, [id, navigate]);
-
-  useWebSocketMessage("game_over", (data) => {
-    if (!id) return;
-    console.log("GAME OVER", data);
-    navigate(`/lobby/${id}/`);
   });
 
-  const handleKeyPress = useCallback(
-    async (key: string) => {
-      if (!gameState || gameState.currentAttempt >= MAX_ATTEMPTS) return;
+  useEffect(() => {
+    console.log("GUESSES", guesses);
+    console.log("FEEDBACK", feedback);
+  }, [guesses, feedback]);
 
-      if (key === "⌫" || key === "Backspace") {
-        setGameState((prev) => ({
-          ...prev,
-          currentGuess: prev.currentGuess.slice(0, -1),
-        }));
-      } else if (key === "ENTER" || key === "Enter") {
-        if (gameState.currentGuess.length === WORD_LENGTH) {
-          const isValid = await validateGuess(gameState.currentGuess);
+  useWebSocketMessage("new_guess", (data: Guess) => {
+    console.log("NEW GUESS FROM SOME PLAYER", data);
+  });
 
-          if (!isValid) {
-            alert("Invalid guess. Please enter a valid word");
-            return;
-          }
+  useWebSocketMessage("game_over", (data) => {
+    console.log("GAME OVER", data);
+    navigate("/lobby/" + id);
+  });
 
-          try {
-            if (!id) return;
-            await api.post(`/api/game/${id}/guess`, {
-              guessWord: gameState.currentGuess,
-            });
-          } catch (error) {
-            console.error("Failed to submit guess:", error);
-            alert("Failed to submit guess. Please try again.");
-          }
-        }
-      } else if (gameState.currentGuess.length < WORD_LENGTH) {
-        const letter = key.length === 1 ? key.toUpperCase() : key;
-        if (/^[A-Z]$/.test(letter)) {
-          setGameState((prev) => ({
-            ...prev,
-            currentGuess: prev.currentGuess + letter,
-          }));
-        }
-      }
-    },
-    [gameState, id],
-  );
+  useWebSocketMessage("player_left", (data) => {
+    console.log("PLAYER LEFT", data);
+  });
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      handleKeyPress(event.key);
-    };
+    console.log("currentAttemptNumber", currentAttemptNumber);
+  }, [currentAttemptNumber]);
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyPress]);
-
-  const getFeedbackClass = (feedback: number) => {
-    switch (feedback) {
-      case 2:
-        return "bg-green-500 border-green-600";
-      case 1:
-        return "bg-yellow-500 border-yellow-600";
-      case 0:
-        return "bg-gray-600 border-gray-700";
-      default:
-        return "bg-zinc-700 border-zinc-400";
-    }
-  };
-
-  const getLetterClass = (letter: string, isCurrentGuess: boolean) => {
-    if (!letter) return "bg-zinc-700 border-zinc-400";
-    if (isCurrentGuess) return "bg-zinc-500 border-zinc-400";
-
-    const status = gameState?.usedLetters?.[letter];
-    switch (status) {
-      case "correct":
-        return "bg-green-500 text-white border-green-600";
-      case "present":
-        return "bg-yellow-500 text-white border-yellow-600";
-      case "absent":
-        return "bg-gray-600 text-white border-gray-700";
-      default:
-        return "bg-gray-900 border-gray-400";
-    }
-  };
-
-  async function leaveGameHandler() {
-    if (!id) return;
-
+  const getGameDetails = useCallback(async () => {
     try {
-      const response = await api.patch(`/api/game/${id}/leave`);
-      if (response.status === 200) {
-        refreshUser();
-        navigate("/");
+      if (!id) return;
+      const numericId = parseInt(id);
+      if (isNaN(numericId)) {
+        return;
       }
+
+      const { data } = await api.get("/api/game/" + id);
+
+      if (data.game.state === "lobby") {
+        navigate("/lobby/" + id);
+        return;
+      }
+
+      const userGuesses = data.game.guesses.filter(
+        (guess: Guess) => guess.playerId === user?.ID,
+      );
+
+      setCurrentAttemptNumber(userGuesses.length);
+
+      const newGuesses = Array(ATTEMPTS).fill("");
+      const newFeedback = Array(ATTEMPTS).fill("");
+
+      data.game.guesses.forEach((guess: Guess) => {
+        if (guess.playerId === user?.ID) {
+          newGuesses[guess.attemptNumber] = guess.guessWord;
+          newFeedback[guess.attemptNumber] = guess.feedback;
+        }
+      });
+
+      setGuesses(newGuesses);
+      setFeedback(newFeedback);
+
+      console.log(data);
     } catch (error) {
-      console.error(error);
+      console.log(error);
     }
+  }, [id, user?.ID, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      getGameDetails();
+    }
+  }, [getGameDetails, user]);
+
+  const handleDelete = useCallback(() => {
+    {
+      setGuesses((prevGuesses) =>
+        prevGuesses.map((guess, index) =>
+          index === currentAttemptNumber ? guess.slice(0, -1) : guess,
+        ),
+      );
+    }
+  }, [currentAttemptNumber]);
+
+  const handleLetterInput = useCallback(
+    (char: string) => {
+      {
+        setGuesses((prevGuesses) =>
+          prevGuesses.map((guess, index) =>
+            index === currentAttemptNumber
+              ? (guess + char).slice(0, WORD_LENGTH)
+              : guess,
+          ),
+        );
+      }
+    },
+    [currentAttemptNumber],
+  );
+
+  const handleGuessSubmission = useCallback(async () => {
+    {
+      if (currentAttemptNumber > 5) return;
+      const currentGuess = guesses[currentAttemptNumber];
+      if (currentGuess.length != 5) return;
+      const isValidWord = await validateGuess(currentGuess);
+      if (!isValidWord) {
+        alert("Not a valid word");
+        return;
+      }
+
+      //Send Guess Post Request
+      if (!id) return;
+      else if (isNaN(parseInt(id))) return;
+      const { data } = await api.post("/api/game/" + id + "/guess", {
+        guessWord: currentGuess,
+        attemptNumber: currentAttemptNumber,
+      });
+      console.log("GUESS RESPONSE -> ", data);
+      //Increment
+
+      setFeedback((prev) => {
+        const newFeedback = [...prev];
+        newFeedback[currentAttemptNumber] = data.guess.feedback;
+        console.log("NEW FEEDBACK -> ", newFeedback);
+        return newFeedback;
+      });
+
+      //update letters used
+      setLettersUsed((prevLettersUsed) => {
+        const newLettersUsed = [...prevLettersUsed];
+        currentGuess.split("").forEach((letter: (typeof currentGuess)[0]) => {
+          if (!newLettersUsed.includes(letter)) {
+            newLettersUsed.push(letter);
+          }
+        });
+        return newLettersUsed;
+      });
+
+      setCurrentAttemptNumber((prev) => prev + 1);
+      console.log("ALL GOOD");
+    }
+  }, [currentAttemptNumber, guesses, id]);
+
+  const handleInput = useCallback(
+    async (char: string) => {
+      if (currentAttemptNumber > 5) return;
+      if (char === "Del") {
+        handleDelete();
+        return;
+      } else if (char === "Enter") {
+        handleGuessSubmission();
+      } else {
+        handleLetterInput(char);
+      }
+    },
+    [
+      handleDelete,
+      handleLetterInput,
+      handleGuessSubmission,
+      currentAttemptNumber,
+    ],
+  );
+
+  if (!id) {
+    navigate("/not-found");
+    return;
   }
 
-  if (loading) return null;
+  const numericId = parseInt(id);
+  if (isNaN(numericId)) {
+    navigate("/not-found");
+  }
 
-  const otherPlayers =
-    gameState?.players?.filter((p) => p?.id !== user?.ID) || [];
+  const handleQuit = async () => {
+    try {
+      const { data } = await api.patch(`/api/game/${id}/leave`);
+      console.log("QUIT", data);
+
+      refreshUser();
+
+      navigate("/");
+    } catch (error) {
+      console.error("QUIT ERROR", error);
+    }
+  };
 
   return (
-    <div className="page-background flex min-h-screen flex-col">
-      <div className="flex flex-1 flex-col items-center justify-start px-4 py-8">
-        <h2 className="mb-8 text-2xl font-bold">Wordle Race</h2>
-
-        {/* Main player's grid */}
-        <div className="mb-8 grid grid-rows-6 gap-2">
-          {(gameState?.guesses || []).map((guess, attemptIndex) => (
-            <div key={attemptIndex} className="grid grid-cols-5 gap-2">
-              {Array.from({ length: WORD_LENGTH }).map((_, letterIndex) => {
-                const letter =
-                  attemptIndex === gameState?.currentAttempt
-                    ? gameState?.currentGuess?.[letterIndex]
-                    : guess?.[letterIndex];
-
-                return (
-                  <div
-                    key={letterIndex}
-                    className={`flex h-14 w-14 items-center justify-center border-2 text-2xl font-bold uppercase transition-colors ${getLetterClass(
-                      letter,
-                      attemptIndex === gameState?.currentAttempt,
-                    )}`}
-                  >
-                    {letter}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-
-        {/* Other players' grids */}
-        <div className="mb-8 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {otherPlayers.map((player) => (
-            <div key={player?.id} className="flex flex-col items-center">
-              <h3 className="mb-2 text-lg font-semibold">{player?.username}</h3>
-              <div className="grid origin-top scale-75 grid-rows-6 gap-1">
-                {Array.from({ length: MAX_ATTEMPTS }).map((_, attemptIndex) => {
-                  const guess = player?.guesses?.[attemptIndex];
-                  return (
-                    <div key={attemptIndex} className="grid grid-cols-5 gap-1">
-                      {Array.from({ length: WORD_LENGTH }).map(
-                        (_, letterIndex) => (
-                          <div
-                            key={letterIndex}
-                            className={`flex h-14 w-14 items-center justify-center border-2 transition-colors ${
-                              guess
-                                ? getFeedbackClass(guess.feedback[letterIndex])
-                                : "border-zinc-400 bg-zinc-700"
-                            }`}
-                          />
-                        ),
-                      )}
-                    </div>
-                  );
-                })}
+    <div className="page-background flex min-h-screen flex-col items-center justify-center py-20">
+      <h1 className="mb-6 text-4xl font-bold">Wordle Race</h1>
+      {/* Game board */}
+      <div className="flex flex-col items-center justify-center gap-2">
+        {Array.from({ length: ATTEMPTS }).map((_, rowIndex) => (
+          <div key={rowIndex} className="flex gap-2">
+            {Array.from({ length: WORD_LENGTH }).map((_, colIndex) => (
+              <div
+                key={colIndex}
+                className={`flex size-16 items-center justify-center rounded-md border border-gray-500 text-center text-2xl font-black uppercase ${feedback[rowIndex][colIndex] == "2" ? "bg-green-500" : feedback[rowIndex][colIndex] == "1" ? "bg-yellow-500" : feedback[rowIndex][colIndex] == "0" ? "bg-zinc-600" : "bg-slate-700"}`}
+              >
+                {guesses[rowIndex][colIndex] || ""}
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Keyboard */}
-        <Keyboard
-          onKeyPress={handleKeyPress}
-          usedLetters={gameState?.usedLetters || {}}
-        />
-
-        <button
-          className="mt-5 text-sm font-medium text-red-500 hover:underline"
-          onClick={leaveGameHandler}
-        >
-          Quit game
-        </button>
+            ))}
+          </div>
+        ))}
       </div>
+
+      {/* Input */}
+
+      <Keyboard handleInput={handleInput} usedLetters={lettersUsed} />
+
+      <button
+        className="text-red mt-6 text-sm font-medium text-red-600 hover:underline"
+        onClick={handleQuit}
+      >
+        Quit
+      </button>
     </div>
   );
 }
 
-const KEYBOARD_ROWS = [
-  ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-  ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-  ["ENTER", "Z", "X", "C", "V", "B", "N", "M", "⌫"],
-];
+function Keyboard({
+  handleInput,
+  usedLetters,
+}: {
+  handleInput: (char: string) => void;
+  usedLetters: string[];
+}) {
+  //Event listner to handle keyboard input
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const char = event.key.toLowerCase();
 
-interface KeyboardProps {
-  onKeyPress: (key: string) => void;
-  usedLetters: {
-    [key: string]: "correct" | "present" | "absent" | undefined;
-  };
-}
+      //ignore ctrl | alt + key combinations
+      if ((event.ctrlKey || event.altKey) && char.length === 1) {
+        return;
+      }
 
-function Keyboard({ onKeyPress, usedLetters }: KeyboardProps) {
-  const getKeyClass = (key: string) => {
-    const status = usedLetters?.[key];
-    const baseClass =
-      "rounded font-bold uppercase bg-gray-600 hover:bg-gray-500 transition-colors";
+      if (char.length === 1 && /^[a-z]$/.test(char)) {
+        handleInput(char);
+      }
 
-    if (key === "ENTER" || key === "⌫") {
-      return `${baseClass} px-4 py-4 text-sm bg-gray-300 hover:bg-gray-500`;
-    }
+      if (event.key == "Backspace") {
+        handleInput("Del");
+      }
 
-    switch (status) {
-      case "correct":
-        return `${baseClass} bg-green-500 text-white`;
-      case "present":
-        return `${baseClass} bg-yellow-500 text-white`;
-      case "absent":
-        return `${baseClass} bg-gray-600 text-white`;
-      default:
-        return `${baseClass} bg-gray-300 hover:bg-gray-400`;
-    }
-  };
+      if (event.key == "Enter") {
+        handleInput("Enter");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleInput]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl p-2">
-      {KEYBOARD_ROWS.map((row, i) => (
-        <div key={i} className="my-1.5 flex justify-center gap-1.5">
-          {row.map((key) => (
+    <div className="mt-8 flex flex-col items-center justify-center gap-2">
+      {KEYBOARD.map((row, rowIndex) => (
+        <div key={rowIndex} className="flex gap-2">
+          {row.map((char) => (
             <button
-              key={key}
-              onClick={() => onKeyPress(key)}
-              className={`${getKeyClass(key)} h-14 min-w-[40px] p-2`}
+              key={char}
+              onClick={() => handleInput(char)}
+              className={`rounded-md border border-zinc-400 p-3 text-xl font-extrabold uppercase ${usedLetters.includes(char) ? "bg-neutral-900 text-gray-100" : "bg-gray-600 text-white"} `}
             >
-              {key}
+              {char}
             </button>
           ))}
         </div>
