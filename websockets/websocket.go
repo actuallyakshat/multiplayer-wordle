@@ -192,7 +192,9 @@ func BroadcastNewGuess(gameID uint, guess models.Guess) {
 }
 
 func BroadcastGameOver(gameOver GameOverData) {
-	gameOver.Winner.Password = ""
+	if gameOver.Winner != nil {
+		gameOver.Winner.Password = ""
+	}
 	maskedGameOver := GameOverData{
 		Game:    maskGameInfo(gameOver.Game),
 		Winner:  gameOver.Winner,

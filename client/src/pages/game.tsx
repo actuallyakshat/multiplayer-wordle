@@ -425,7 +425,7 @@ export default function GameScreen() {
     const currentGuess = guesses[currentAttemptNumber];
     if (currentGuess.length != 5) return;
 
-    const isValidWord = await validateGuess(currentGuess);
+    const isValidWord = validateGuess(currentGuess);
     if (!isValidWord) {
       alert("Not a valid word");
       return;

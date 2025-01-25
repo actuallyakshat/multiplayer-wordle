@@ -605,6 +605,8 @@ func EndGame(game models.Game, player *models.Player) error {
 		Players: game.Players,
 	}
 
+	log.Println("EVERYTHING GOOD UPTIL BROADCAST")
+
 	websockets.BroadcastGameOver(gameOverData)
 	return nil
 }
