@@ -27,9 +27,12 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4 p-8">
-        <h1 className="text-2xl font-bold">Login</h1>
+    <div className="page-background flex min-h-screen items-center justify-center">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md space-y-4 p-8 text-black"
+      >
+        <h1 className="text-2xl font-bold text-white">Login</h1>
         {error && <div className="text-red-500">{error}</div>}
         <input
           type="text"

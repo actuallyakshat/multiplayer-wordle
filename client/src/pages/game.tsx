@@ -196,6 +196,8 @@ function OtherPlayers({
     return { player, guesses, feedback };
   });
 
+  console.log("PLAYER GUESSES", playerGuesses);
+
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {playerGuesses.map(({ player, guesses, feedback }) => (
@@ -207,7 +209,7 @@ function OtherPlayers({
             user={UserType.OTHER}
           />
 
-          {guesses.length >= 6 && (
+          {feedback.filter((f) => f !== "").length >= 6 && (
             <p className="mt-5 font-medium">Guesses Exhausted</p>
           )}
         </div>
@@ -232,7 +234,7 @@ const GameOverDialog = memo(
       const timeout = setTimeout(() => {
         setMessage("");
         navigate("/lobby/" + id);
-      }, 7000);
+      }, 6000);
 
       return () => clearTimeout(timeout);
     }, [message, setMessage, id, navigate]);

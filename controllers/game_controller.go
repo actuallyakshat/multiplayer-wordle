@@ -195,6 +195,8 @@ func GetGame(c *fiber.Ctx) error {
 		game.Players[i].Password = ""
 	}
 
+	game.Word = ""
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Success",
 		"game":    game,
@@ -269,6 +271,7 @@ func StartGame(c *fiber.Ctx) error {
 
 	websockets.BroadcastGameStarted(game)
 
+	game.Word = ""
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Game started successfully",
 		"game":    game,
@@ -336,6 +339,7 @@ func LeaveGame(c *fiber.Ctx) error {
 			break
 		}
 	}
+
 	if !isUserPresent {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "You are not in this game",
@@ -385,15 +389,6 @@ func LeaveGame(c *fiber.Ctx) error {
 			})
 		} else {
 			log.Println("Game deleted successfully: ", game.ID)
-		}
-	}
-
-	if len(game.Players) == 1 {
-
-		if err := EndGame(game, nil); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to end the game",
-			})
 		}
 	}
 

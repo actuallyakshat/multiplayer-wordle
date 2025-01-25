@@ -67,7 +67,6 @@ func (h *GameHub) HandleConnection(c *websocket.Conn) {
 	}
 
 	// Add connection to hub
-	log.Println("New connection", conn)
 	h.addConnection(conn)
 
 	// Remove connection when function returns
@@ -98,8 +97,6 @@ func (h *GameHub) addConnection(conn Connection) {
 	defer h.mu.Unlock()
 
 	h.connections[conn.GameID] = append(h.connections[conn.GameID], conn)
-	log.Printf("New connection from %s in game %d\n", conn.Username, conn.GameID)
-	log.Printf("Total connections in game with gameId %d are: %d\n", conn.GameID, len(h.connections))
 }
 
 // removeConnection removes a connection from the hub
@@ -155,6 +152,7 @@ type GameOverData struct {
 // Masking password and guess word
 func maskGameInfo(game models.Game) models.Game {
 	removePasswords(game.Players)
+	removeGuesses(game.Guesses)
 	game.Word = ""
 	return game
 }
@@ -164,6 +162,13 @@ func removePasswords(players []models.Player) []models.Player {
 		players[i].Password = ""
 	}
 	return players
+}
+
+func removeGuesses(guesses []models.Guess) []models.Guess {
+	for i := range guesses {
+		guesses[i].GuessWord = ""
+	}
+	return guesses
 }
 
 // Convenience functions for broadcasting specific game events
@@ -188,6 +193,7 @@ func BroadcastGameStarted(game models.Game) {
 }
 
 func BroadcastNewGuess(gameID uint, guess models.Guess) {
+	guess.GuessWord = ""
 	Hub.BroadcastToGame(gameID, "new_guess", guess)
 }
 
@@ -195,6 +201,9 @@ func BroadcastGameOver(gameOver GameOverData) {
 	if gameOver.Winner != nil {
 		gameOver.Winner.Password = ""
 	}
+
+	gameOver.Game.Guesses = removeGuesses(gameOver.Game.Guesses)
+
 	maskedGameOver := GameOverData{
 		Game:    maskGameInfo(gameOver.Game),
 		Winner:  gameOver.Winner,
