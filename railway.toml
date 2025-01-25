@@ -1,0 +1,3 @@
+[build]
+builder = "Go"
+buildCommand = "cd client && pnpm build && cd .. && go build"
