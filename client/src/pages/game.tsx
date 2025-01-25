@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  Dispatch,
+  memo,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import api from "../lib/axios";
 import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../store/auth";
@@ -30,6 +37,12 @@ interface Game {
   state: string;
   players: Player[];
   guesses: Guess[];
+}
+
+interface GaveOverProps {
+  Game: Game;
+  Winner: Player;
+  Word: string;
 }
 
 enum UserType {
@@ -149,6 +162,7 @@ function Keyboard({
   );
 }
 
+//Component to display game grid of the other players in the game
 function OtherPlayers({
   players,
   allGuesses,
@@ -182,8 +196,6 @@ function OtherPlayers({
     return { player, guesses, feedback };
   });
 
-  console.log("PLAYER GUESSES", playerGuesses);
-
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {playerGuesses.map(({ player, guesses, feedback }) => (
@@ -203,6 +215,45 @@ function OtherPlayers({
     </div>
   );
 }
+interface GameOverDialogProps {
+  message: string;
+  setMessage: Dispatch<SetStateAction<string>>;
+  id: string;
+}
+
+//Why memo? Memo allows us to prevent unnecessary re-renders of the component. It only re-renders when the props change. Memo is a HOC provided by React.
+const GameOverDialog = memo(
+  ({ message, setMessage, id }: GameOverDialogProps) => {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+      if (!message) return;
+
+      const timeout = setTimeout(() => {
+        setMessage("");
+        navigate("/lobby/" + id);
+      }, 7000);
+
+      return () => clearTimeout(timeout);
+    }, [message, setMessage, id, navigate]);
+
+    if (!message) return null;
+
+    return (
+      <div className="fixed left-0 top-0 z-[101] flex h-screen w-screen items-center justify-center bg-black/90 bg-opacity-50">
+        <div className="max-w-md rounded-md border bg-slate-700/50 p-8">
+          <h2 className="text-center text-4xl font-extrabold tracking-tight">
+            Game Over
+          </h2>
+          <p className="mt-4 text-center text-lg">{message}</p>
+          <p className="mt-5 text-center text-sm font-medium text-gray-300">
+            Taking you back to the lobby...
+          </p>
+        </div>
+      </div>
+    );
+  },
+);
 
 //Game Screen page which handles auth, fetching game data, and rendering the game board and handling real time updates
 export default function GameScreen() {
@@ -213,6 +264,7 @@ export default function GameScreen() {
   const [lettersUsed, setLettersUsed] = useState<string[]>([]);
   const [players, setAllPlayers] = useState<Player[]>([]);
   const [allGuesses, setAllGuesses] = useState<Guess[]>([]);
+  const [gameOverDialogMessage, setGameOverDialogMessage] = useState("");
 
   const { user, isLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -233,24 +285,48 @@ export default function GameScreen() {
     if (!user && !isLoading) {
       navigate("/login");
     }
-  });
+  }, [user, isLoading, navigate]);
 
   useWebSocketMessage("new_guess", (data: Guess) => {
     setAllGuesses((prevGuesses) => [...prevGuesses, data]);
   });
 
-  useWebSocketMessage("game_over", (data) => {
-    console.log("GAME OVER", data);
-    navigate("/lobby/" + id);
+  useWebSocketMessage("game_over", (data: GaveOverProps) => {
+    let message = "";
+    //Case 1: Game over due to player quitting
+    if (!data.Winner && data.Game.players.length === 1) {
+      message =
+        "Oops! Looks like you are the only person left in this game. Anyway, the word was " +
+        data.Word;
+    }
+    //Case 2: Game over due to player winning
+    else if (data.Winner && data.Game.players.length > 1) {
+      message = `${data.Winner.username} won the game! The word was ${data.Word}`;
+    }
+    //Case 3: Game over due to draw
+    else if (!data.Winner && data.Game.players.length > 1) {
+      message = "The game ended in a draw. The word was " + data.Word;
+    }
+
+    //If the user is in the game, navigate to the lobby. Otherwise (User leaving the game caused game over), navigate to the home page.
+    const isUserInGame = data.Game.players.some(
+      (player) => player.ID === user?.ID,
+    );
+
+    if (isUserInGame) {
+      setGameOverDialogMessage(message);
+      //Show game over screen. Game over screen would handle the navigation to the lobby page.
+    } else {
+      //If the user is not in the game, navigate to the home page.
+      navigate("/");
+    }
   });
 
   useWebSocketMessage("player_left", (data: Game) => {
-    console.log("PLAYER LEFT", data);
     setAllPlayers(data.players.filter((player) => player.ID !== user?.ID));
   });
 
   useWebSocketMessage("player_joined", (data: Game) => {
-    console.log("PLAYER LEFT", data);
     setAllPlayers(data.players.filter((player) => player.ID !== user?.ID));
   });
 
@@ -301,7 +377,7 @@ export default function GameScreen() {
       setFeedback(newFeedback);
       setAllPlayers(playersExceptCurrentUser);
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   }, [id, user?.ID, navigate]);
 
@@ -394,8 +470,7 @@ export default function GameScreen() {
 
   const handleQuit = async () => {
     try {
-      const { data } = await api.patch(`/api/game/${id}/leave`);
-      console.log("QUIT RESPONSE", data);
+      await api.patch(`/api/game/${id}/leave`);
       refreshUser();
       navigate("/");
     } catch (error) {
@@ -406,6 +481,11 @@ export default function GameScreen() {
   return (
     <div className="page-background flex min-h-screen flex-col items-center justify-center py-32">
       <h1 className="mb-6 text-4xl font-bold">Wordle Race</h1>
+      <GameOverDialog
+        message={gameOverDialogMessage}
+        setMessage={setGameOverDialogMessage}
+        id={id!}
+      />
       <GameBoard
         guesses={guesses}
         feedback={feedback}

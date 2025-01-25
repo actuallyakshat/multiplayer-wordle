@@ -23,11 +23,10 @@ function Landing() {
   async function createGameHandler() {
     try {
       setLoading(true);
-      const response = await api.post("/api/game");
-      console.log("Game created", response.data);
+      const { data } = await api.post("/api/game");
       await refreshUser();
 
-      const gameId = response.data.gameID;
+      const gameId = data.game.ID;
       navigate(`/lobby/${gameId}`);
     } catch (error) {
       console.error(error);

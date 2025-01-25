@@ -43,12 +43,10 @@ export default function Lobby() {
 
   //Web socket events
   useWebSocketMessage("player_joined", (payload: playerJoinedPayload) => {
-    console.log("Player joined", payload);
     setPlayers(payload.players);
   });
 
   useWebSocketMessage("player_left", async (payload: playerJoinedPayload) => {
-    console.log("Player left", payload);
     //check if the current user is made the new admin
     for (const player of payload.players) {
       if (player.isAdmin) {
@@ -60,7 +58,6 @@ export default function Lobby() {
   });
 
   useWebSocketMessage("game_started", () => {
-    console.log("Game started");
     navigate("/game/" + id);
   });
 
@@ -91,7 +88,6 @@ export default function Lobby() {
           const response = await api.patch(`/api/game/${id}/join`);
           if (response.status === 200) {
             await refreshUser();
-            console.log("Joined game");
             data = await getGameDetailsHandler();
           } else {
             console.error("Something went wrong");
@@ -100,7 +96,6 @@ export default function Lobby() {
         }
 
         if (state == "in-progress") {
-          console.log("Navigating to game");
           navigate("/game/" + id);
         }
         setPlayers(data.game.players);
@@ -109,16 +104,12 @@ export default function Lobby() {
       }
     }
     getGameDetails();
-  }, [id, navigate, user, getGameDetailsHandler]);
+  }, [id, navigate, user, getGameDetailsHandler, refreshUser]);
 
   async function startGame() {
     try {
       setLoading({ ...loading, startGame: true });
-      const response = await api.patch(`/api/game/${id}/start`);
-      if (response.status === 200) {
-        console.log("GAME", response.data);
-        // navigate("/game/" + id);
-      }
+      await api.patch(`/api/game/${id}/start`);
     } catch (error) {
       console.error(error);
     } finally {

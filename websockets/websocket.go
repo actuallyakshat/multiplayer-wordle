@@ -146,26 +146,45 @@ func (h *GameHub) BroadcastToGame(gameID uint, messageType string, payload inter
 }
 
 type GameOverData struct {
-	Game   models.Game
-	Winner *models.Player
-	Word   string
+	Game    models.Game
+	Winner  *models.Player
+	Word    string
+	Players []models.Player
+}
+
+// Masking password and guess word
+func maskGameInfo(game models.Game) models.Game {
+	removePasswords(game.Players)
+	game.Word = ""
+	return game
+}
+
+func removePasswords(players []models.Player) []models.Player {
+	for i := range players {
+		players[i].Password = ""
+	}
+	return players
 }
 
 // Convenience functions for broadcasting specific game events
 func BroadcastGameCreated(game models.Game) {
-	Hub.BroadcastToGame(game.ID, "game_created", game)
+	maskedGame := maskGameInfo(game)
+	Hub.BroadcastToGame(game.ID, "game_created", maskedGame)
 }
 
 func BroadcastPlayerJoined(game models.Game) {
-	Hub.BroadcastToGame(game.ID, "player_joined", game)
+	maskedGame := maskGameInfo(game)
+	Hub.BroadcastToGame(game.ID, "player_joined", maskedGame)
 }
 
 func BroadcastPlayerLeft(game models.Game) {
-	Hub.BroadcastToGame(game.ID, "player_left", game)
+	maskedGame := maskGameInfo(game)
+	Hub.BroadcastToGame(game.ID, "player_left", maskedGame)
 }
 
 func BroadcastGameStarted(game models.Game) {
-	Hub.BroadcastToGame(game.ID, "game_started", game)
+	maskedGame := maskGameInfo(game)
+	Hub.BroadcastToGame(game.ID, "game_started", maskedGame)
 }
 
 func BroadcastNewGuess(gameID uint, guess models.Guess) {
@@ -173,5 +192,12 @@ func BroadcastNewGuess(gameID uint, guess models.Guess) {
 }
 
 func BroadcastGameOver(gameOver GameOverData) {
-	Hub.BroadcastToGame(gameOver.Game.ID, "game_over", gameOver)
+	gameOver.Winner.Password = ""
+	maskedGameOver := GameOverData{
+		Game:    maskGameInfo(gameOver.Game),
+		Winner:  gameOver.Winner,
+		Word:    gameOver.Word,
+		Players: removePasswords(gameOver.Players),
+	}
+	Hub.BroadcastToGame(gameOver.Game.ID, "game_over", maskedGameOver)
 }
