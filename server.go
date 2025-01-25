@@ -78,7 +78,12 @@ func startServer(app *fiber.App) {
 		port = "8080"
 	}
 
-	err := app.Listen(":" + port)
+	//For Railway
+	err := app.Listen("0.0.0.0:" + port)
+
+	//For Local Host
+	// err := app.Listen(":" + port)
+
 	if err != nil {
 		panic(err)
 	}
