@@ -291,6 +291,7 @@ export default function GameScreen() {
   const [allGuesses, setAllGuesses] = useState<Guess[]>([]);
   const [gameOverDialogMessage, setGameOverDialogMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [quitLoading, setQuitLoading] = useState(false);
 
   const { user, isLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -497,12 +498,15 @@ export default function GameScreen() {
   );
 
   const handleQuit = async () => {
+    setQuitLoading(true);
     try {
       await api.patch(`/api/game/${id}/leave`);
       refreshUser();
       navigate("/");
     } catch (error) {
       console.error("QUIT ERROR", error);
+    } finally {
+      setQuitLoading(false);
     }
   };
 
@@ -533,10 +537,11 @@ export default function GameScreen() {
       />
       <Keyboard handleInput={handleInput} usedLetters={lettersUsed} />
       <button
-        className="text-red my-8 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium hover:bg-red-700"
+        className="text-red my-8 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-80"
         onClick={handleQuit}
+        disabled={quitLoading}
       >
-        Quit Game
+        {quitLoading ? "Quitting..." : "Quit Game"}
       </button>
 
       <div>
