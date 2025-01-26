@@ -50,7 +50,7 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="page-background flex min-h-screen items-center justify-center">
+    <div className="page-background flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md rounded-lg bg-gray-800 p-8 shadow-lg">
         <h1 className="mb-6 text-center text-3xl font-bold text-white">
           Register

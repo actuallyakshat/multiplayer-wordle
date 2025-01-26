@@ -147,12 +147,19 @@ function Keyboard({
   return (
     <div className="mt-8 flex flex-col items-center justify-center gap-2">
       {KEYBOARD.map((row, rowIndex) => (
-        <div key={rowIndex} className="flex gap-2">
+        <div
+          key={rowIndex}
+          className="max-w-screen flex flex-wrap justify-center gap-2"
+        >
           {row.map((char) => (
             <button
               key={char}
               onClick={() => handleInput(char)}
-              className={`rounded-md border border-zinc-700 p-3 text-xl font-bold uppercase ${usedLetters.includes(char) ? "bg-stone-900 text-gray-100" : "bg-zinc-700 text-white"} `}
+              className={`rounded-md border border-zinc-700 px-2 py-2 text-base font-bold uppercase sm:px-3 sm:py-3 sm:text-lg ${
+                usedLetters.includes(char)
+                  ? "bg-stone-900 text-gray-100"
+                  : "bg-zinc-700 text-white"
+              }`}
             >
               {char}
             </button>
