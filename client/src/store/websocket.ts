@@ -37,7 +37,10 @@ export const wsManagerAtom = atom(
     const connectWebSocket = () => {
       // Create new WebSocket connection with proper URL encoding
       const ws = new WebSocket(
-        `ws://localhost:8080/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
+        //For loclahost
+        // `ws://localhost:8080/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
+        //For Production
+        `ws://wordle.actuallyakshat.in/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
       );
 
       // Set a connection timeout
