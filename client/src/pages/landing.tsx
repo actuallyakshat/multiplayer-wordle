@@ -1,9 +1,9 @@
-import { PlaySquare, Trophy, Users } from "lucide-react";
+import { PlaySquare, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import Dialog from "../components/ui/dialog";
 import api from "../lib/axios";
 import { useAuth } from "../store/auth";
-import Dialog from "../components/ui/dialog";
 
 interface Game {
   ID: number;
@@ -43,7 +43,7 @@ function Landing() {
     <div className="page-background flex min-h-screen items-center justify-center">
       <div className="container mx-auto px-4 py-40">
         <div className="text-center">
-          <h1 className="mb-4 text-5xl font-bold text-white md:text-7xl">
+          <h1 className="mb-4 text-5xl font-bold tracking-tight text-white md:text-7xl">
             Wordle Race
           </h1>
           <p className="mx-auto mb-5 max-w-2xl text-lg text-slate-300">
@@ -66,7 +66,7 @@ function Landing() {
                 <button
                   disabled={loading}
                   onClick={createGameHandler}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-lg font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400"
+                  className="text-md flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-4 font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400"
                 >
                   <PlaySquare className="h-5 w-5" />
                   {loading ? "Creating Game..." : "Create Game"}
@@ -75,7 +75,7 @@ function Landing() {
                 <Dialog
                   isLoading={false}
                   dialogTrigger={
-                    <button className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-6 py-3 text-lg font-semibold text-white hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">
+                    <button className="text-md flex w-full items-center justify-center gap-2 rounded-lg bg-slate-700 px-6 py-4 font-semibold text-white hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">
                       <Users className="h-5 w-5" />
                       Join Game
                     </button>
@@ -93,8 +93,6 @@ function Landing() {
             </button>
           )}
         </div>
-
-        <Features />
       </div>
     </div>
   );
@@ -140,45 +138,5 @@ function JoinGameForm() {
         Join Game
       </button>
     </form>
-  );
-}
-
-interface FeatureCardProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}
-
-function Features() {
-  return (
-    <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-3">
-      <FeatureCard
-        icon={<Users className="h-6 w-6 text-emerald-500" />}
-        title="Real-time Multiplayer"
-        description="Compete with friends in real-time and see who can solve the puzzle first."
-      />
-      <FeatureCard
-        icon={<Trophy className="h-6 w-6 text-emerald-500" />}
-        title="Competitive Play"
-        description="Track scores, compete for the fastest solve times, and climb the leaderboard."
-      />
-      <FeatureCard
-        icon={<PlaySquare className="h-6 w-6 text-emerald-500" />}
-        title="Custom Games"
-        description="Create private game rooms and invite friends for exclusive word battles."
-      />
-    </div>
-  );
-}
-
-function FeatureCard({ icon, title, description }: FeatureCardProps) {
-  return (
-    <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/10">
-        {icon}
-      </div>
-      <h3 className="mb-2 text-xl font-semibold text-white">{title}</h3>
-      <p className="text-slate-400">{description}</p>
-    </div>
   );
 }
