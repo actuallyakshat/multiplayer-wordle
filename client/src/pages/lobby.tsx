@@ -137,7 +137,7 @@ export default function Lobby() {
   }
 
   return (
-    <div className="page-background flex min-h-screen items-center justify-center">
+    <div className="page-background flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-xl">
         <h3 className="text-center text-lg font-semibold text-gray-600">
           Wordle Race
