@@ -8,6 +8,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const { login, user } = useAuth();
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,12 +29,16 @@ export function LoginPage() {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setLoading(true);
     try {
       await login(username, password);
+      setErrors({});
       navigate("/");
     } catch (err) {
       console.log(err);
       setErrors({ form: "Invalid username or password" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,9 +72,10 @@ export function LoginPage() {
           />
           <button
             type="submit"
-            className="w-full rounded-md bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+            disabled={loading}
+            className="w-full rounded-md bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:cursor-not-allowed disabled:opacity-80"
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
         <p className="mt-4 text-center text-gray-400">
