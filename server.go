@@ -31,8 +31,8 @@ func main() {
 // Configure global middlewares
 func setupMiddlewares(app *fiber.App) {
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3000, http://localhost:5173",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowOrigins:     "*",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, Upgrade, Connection",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
 		AllowCredentials: true,
 	}))
@@ -58,7 +58,7 @@ func setupWebSocketRoutes(app *fiber.App) {
 	})
 
 	app.Get("/ws/:gameID", websocket.New(websockets.Hub.HandleConnection, websocket.Config{
-		Origins: []string{"http://localhost:3000", "http://localhost:5173"},
+		Origins: []string{"http://localhost:3000", "http://localhost:5173", "https://multiplayer-wordle-production.up.railway.app", "https://wordle.actuallyakshat.in"},
 	}))
 }
 
