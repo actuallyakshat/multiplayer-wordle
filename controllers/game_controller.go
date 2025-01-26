@@ -124,6 +124,13 @@ func JoinGame(c *fiber.Ctx) error {
 		})
 	}
 
+	//Don't allow more than 8 players in a game
+	if (len(game.Players) + 1) > 8 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Game is full",
+		})
+	}
+
 	// if game.State != models.GameState("lobby") {
 	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 	// 		"error": "Game is not in lobby state",

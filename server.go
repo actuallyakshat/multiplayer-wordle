@@ -6,10 +6,12 @@ import (
 	"multiplayer-wordle/routes"
 	"multiplayer-wordle/websockets"
 	"os"
+	"time"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 )
 
@@ -36,6 +38,20 @@ func setupMiddlewares(app *fiber.App) {
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
 		AllowCredentials: true,
 	}))
+
+	app.Use(limiter.New(limiter.Config{
+		Max:        100,             // This means the number of requests per window
+		Expiration: 1 * time.Minute, // The expiry of a window
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP() // Limit based on IP address
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(429).JSON(fiber.Map{
+				"error": "Too many requests, please try again later",
+			})
+		},
+	}))
+
 }
 
 // Configures API routes
@@ -43,6 +59,20 @@ func setupRoutes(app *fiber.App) {
 	api := app.Group("/api")
 	api.Use(logger.New())
 	api.Use(middlewares.CheckAuth())
+
+	api.Use(limiter.New(limiter.Config{
+		Max:        50, // Stricter limit for API
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(429).JSON(fiber.Map{
+				"error": "API rate limit exceeded",
+			})
+		},
+	}))
+
 	routes.IndexRouter(api)
 }
 

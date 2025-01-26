@@ -85,20 +85,35 @@ export default function Lobby() {
         let data = await getGameDetailsHandler();
         const state = data.game.state;
 
+        // Check if the user is already in the game
         if (
           !data.game.players.some((player: Player) => player.ID === user.ID)
         ) {
-          const response = await api.patch(`/api/game/${id}/join`);
-          if (response.status === 200) {
-            await refreshUser();
-            data = await getGameDetailsHandler();
-          } else {
-            console.error("Something went wrong");
+          try {
+            const response = await api.patch(`/api/game/${id}/join`);
+            if (response.status === 200) {
+              await refreshUser();
+              data = await getGameDetailsHandler();
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } catch (error: any) {
+            if (
+              error.response?.status === 400 &&
+              error.response.data?.error === "Game is full"
+            ) {
+              alert("The game is full. You cannot join.");
+            } else {
+              console.error(
+                "Something went wrong while joining the game:",
+                error,
+              );
+            }
             return;
           }
         }
 
-        if (state == "in-progress") {
+        // If the game is in progress, navigate to the game page
+        if (state === "in-progress") {
           navigate("/game/" + id);
         }
         setPlayers(data.game.players);
@@ -107,6 +122,7 @@ export default function Lobby() {
         console.error("Error fetching game details:", error);
       }
     }
+
     getGameDetails();
   }, [id, navigate, user, getGameDetailsHandler, refreshUser]);
 
