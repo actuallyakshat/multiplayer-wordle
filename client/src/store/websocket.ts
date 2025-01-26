@@ -40,7 +40,7 @@ export const wsManagerAtom = atom(
         //For loclahost
         // `ws://localhost:8080/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
         //For Production
-        `ws://wordle.actuallyakshat.in/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
+        `wss://wordle.actuallyakshat.in/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
       );
 
       // Set a connection timeout
