@@ -31,7 +31,7 @@ func main() {
 // Configure global middlewares
 func setupMiddlewares(app *fiber.App) {
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "*",
+		AllowOrigins:     "http://localhost:3000,http://localhost:5173,https://multiplayer-wordle-production.up.railway.app,https://wordle.actuallyakshat.in",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, Upgrade, Connection",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
 		AllowCredentials: true,
