@@ -2,6 +2,7 @@ import { atom, useAtom } from "jotai";
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
 import api, { removeAuthToken, setAuthToken } from "../lib/axios";
+import { AxiosError } from "axios";
 
 interface User {
   ID: string;
@@ -14,6 +15,10 @@ interface loginResponse {
   jwt?: string;
   message?: string;
   error?: string;
+}
+
+interface ErrorResponse {
+  error: string;
 }
 
 export const userAtom = atom<User | null>(null);
@@ -54,6 +59,10 @@ export const useAuth = () => {
       setAuthToken(data.jwt);
       await refreshUser();
     } catch (error) {
+      const e = error as AxiosError<ErrorResponse>;
+      if (e.response?.data.error) {
+        throw new Error(e.response.data.error);
+      }
       console.error(error);
       throw error;
     }

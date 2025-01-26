@@ -17,11 +17,11 @@ interface playerJoinedPayload {
 
 export default function Lobby() {
   const navigate = useNavigate();
-
   const [players, setPlayers] = useState<Player[] | []>([]);
   const { user, refreshUser, isLoading } = useAuth();
-
   const { id } = useParams<{ id: string }>();
+  const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
+  const [isCreator, setIsCreator] = useState(false);
 
   const numericId = Number(id);
   if (isNaN(numericId)) {
@@ -34,20 +34,24 @@ export default function Lobby() {
     }
   }, [isLoading, user, navigate]);
 
-  const isCreator = user?.isAdmin;
+  useEffect(() => {
+    if (!user) return;
+    setIsCreator(user.isAdmin);
+  }, [user]);
+
   const [loading, setLoading] = useState({
     startGame: false,
     deleteRoom: false,
     leaveRoom: false,
   });
 
-  //Web socket events
+  // Web socket events
   useWebSocketMessage("player_joined", (payload: playerJoinedPayload) => {
     setPlayers(payload.players);
+    setIsLoadingPlayers(false);
   });
 
   useWebSocketMessage("player_left", async (payload: playerJoinedPayload) => {
-    //check if the current user is made the new admin
     for (const player of payload.players) {
       if (player.isAdmin) {
         await refreshUser();
@@ -81,7 +85,6 @@ export default function Lobby() {
         let data = await getGameDetailsHandler();
         const state = data.game.state;
 
-        //Check if user in game
         if (
           !data.game.players.some((player: Player) => player.ID === user.ID)
         ) {
@@ -99,6 +102,7 @@ export default function Lobby() {
           navigate("/game/" + id);
         }
         setPlayers(data.game.players);
+        setIsLoadingPlayers(false);
       } catch (error) {
         console.error("Error fetching game details:", error);
       }
@@ -133,14 +137,22 @@ export default function Lobby() {
   }
 
   return (
-    <div className="page-background min-h-screen">
-      <div className="container mx-auto border-red-600 px-4 py-32 xl:max-w-screen-xl">
-        <h3 className="text-center">Multiplayer Wordle</h3>
-        <h1 className="text-center text-4xl font-extrabold">Lobby</h1>
-        <div className="mt-7 flex w-full flex-col items-center justify-center gap-2">
+    <div className="page-background flex min-h-screen items-center justify-center">
+      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-xl">
+        <h3 className="text-center text-lg font-semibold text-gray-600">
+          Wordle Race
+        </h3>
+        <h1 className="mb-6 mt-2 text-center text-4xl font-extrabold text-gray-800">
+          Lobby
+        </h1>
+        <div className="mb-8 flex flex-col items-center justify-center gap-4">
           {isCreator && (
             <button
-              className="primary-btn"
+              className={`w-full rounded-md px-4 py-3 font-semibold text-white transition-all ${
+                players?.length < 2 || loading.startGame
+                  ? "cursor-not-allowed bg-gray-400"
+                  : "bg-emerald-600 hover:bg-emerald-700"
+              }`}
               onClick={startGame}
               disabled={players?.length < 2 || loading.startGame}
             >
@@ -151,21 +163,55 @@ export default function Lobby() {
                   : "Start Game"}
             </button>
           )}
-          <button onClick={leaveRoom} disabled={loading.leaveRoom}>
+          <button
+            className={`w-full rounded-md px-4 py-3 font-semibold transition-all ${
+              loading.leaveRoom
+                ? "cursor-not-allowed bg-gray-400 text-white"
+                : "bg-red-500 text-white hover:bg-red-600"
+            }`}
+            onClick={leaveRoom}
+            disabled={loading.leaveRoom}
+          >
             {loading.leaveRoom ? "Leaving Room..." : "Leave Room"}
           </button>
         </div>
-        <div className="mt-5">
-          {players?.map((player: Player) => (
-            <div key={player.ID}>
-              {player.username}
-              <span className="ml-3 text-sm font-medium text-gray-400">
-                {player.isAdmin ? "(leader)" : ""}
-              </span>
-            </div>
-          ))}
+        <div className="space-y-4">
+          <h2 className="mb-4 text-xl font-bold text-gray-700">Players</h2>
+          {isLoadingPlayers
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <PlayerSkeleton key={index} />
+              ))
+            : players?.map((player: Player) => (
+                <div
+                  key={player.ID}
+                  className="flex items-center space-x-4 rounded-md bg-gray-100 p-3"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 font-bold text-white">
+                    {player.username[0].toUpperCase()}
+                  </div>
+                  <div className="flex-grow">
+                    <p className="font-medium text-gray-800">
+                      {player.username}
+                    </p>
+                    {player.isAdmin && (
+                      <span className="text-sm font-medium text-indigo-600">
+                        (leader)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PlayerSkeleton() {
+  return (
+    <div className="mb-4 flex animate-pulse items-center space-x-4">
+      <div className="h-8 w-8 rounded-full bg-gray-300"></div>
+      <div className="h-4 w-1/4 rounded bg-gray-300"></div>
     </div>
   );
 }

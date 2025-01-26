@@ -39,6 +39,7 @@ export const wsManagerAtom = atom(
       const ws = new WebSocket(
         //For loclahost
         // `ws://localhost:8080/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
+
         //For Production
         `wss://multiplayer-wordle-production.up.railway.app/ws/${encodeURIComponent(gameId)}?username=${encodeURIComponent(username)}`,
       );

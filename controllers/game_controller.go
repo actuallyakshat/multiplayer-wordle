@@ -392,6 +392,14 @@ func LeaveGame(c *fiber.Ctx) error {
 		}
 	}
 
+	if len(game.Players) == 1 && game.State == models.GameState("in-progress") {
+		if err := EndGame(game, nil); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to end the game",
+			})
+		}
+	}
+
 	websockets.BroadcastPlayerLeft(game)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

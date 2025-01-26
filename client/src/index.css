@@ -5,9 +5,39 @@
 @tailwind utilities;
 
 .page-background {
-  @apply bg-gradient-to-b from-slate-900 to-slate-800 text-white;
+  @apply bg-gradient-to-b from-slate-900 to-emerald-950 text-white;
 }
 
 .primary-btn {
   @apply flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-8 py-2.5 text-white shadow-lg transition-colors hover:bg-emerald-600 hover:shadow-emerald-500/25 disabled:opacity-80 disabled:hover:bg-emerald-500 disabled:hover:shadow-none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #888;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
 }

@@ -11,6 +11,7 @@ import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../store/auth";
 import { validateGuess } from "../lib/validateGuess";
 import { useWebSocketMessage } from "../store/websocket";
+import { Loader2 } from "lucide-react";
 
 const ATTEMPTS = 6;
 const WORD_LENGTH = 5;
@@ -68,15 +69,15 @@ function Letter({
       case "1":
         return "bg-yellow-500";
       case "0":
-        return "bg-zinc-600";
+        return "bg-stone-600";
       default:
-        return "bg-slate-700";
+        return "bg-zinc-800/40 background-blur-sm";
     }
   };
 
   return (
     <div
-      className={`flex size-16 items-center justify-center rounded-md border border-gray-500 text-center text-2xl font-black uppercase ${getFeedbackClass()}`}
+      className={`flex size-16 items-center justify-center rounded-md border border-zinc-700/70 text-center text-2xl font-black uppercase ${getFeedbackClass()}`}
     >
       {user === UserType.CURRENT ? letter || "" : ""}
     </div>
@@ -151,7 +152,7 @@ function Keyboard({
             <button
               key={char}
               onClick={() => handleInput(char)}
-              className={`rounded-md border border-zinc-400 p-3 text-xl font-bold uppercase ${usedLetters.includes(char) ? "bg-neutral-900 text-gray-100" : "bg-gray-600 text-white"} `}
+              className={`rounded-md border border-zinc-700 p-3 text-xl font-bold uppercase ${usedLetters.includes(char) ? "bg-stone-900 text-gray-100" : "bg-zinc-700 text-white"} `}
             >
               {char}
             </button>
@@ -210,7 +211,9 @@ function OtherPlayers({
           />
 
           {feedback.filter((f) => f !== "").length >= 6 && (
-            <p className="mt-5 font-medium">Guesses Exhausted</p>
+            <p className="mt-5 font-medium">
+              {player.username} has exhausted their guesses!
+            </p>
           )}
         </div>
       ))}
@@ -224,6 +227,12 @@ interface GameOverDialogProps {
 }
 
 //Why memo? Memo allows us to prevent unnecessary re-renders of the component. It only re-renders when the props change. Memo is a HOC provided by React.
+interface GameOverDialogProps {
+  message: string;
+  setMessage: Dispatch<SetStateAction<string>>;
+  id: string;
+}
+
 const GameOverDialog = memo(
   ({ message, setMessage, id }: GameOverDialogProps) => {
     const navigate = useNavigate();
@@ -242,15 +251,29 @@ const GameOverDialog = memo(
     if (!message) return null;
 
     return (
-      <div className="fixed left-0 top-0 z-[101] flex h-screen w-screen items-center justify-center bg-black/90 bg-opacity-50">
-        <div className="max-w-md rounded-md border bg-slate-700/50 p-8">
-          <h2 className="text-center text-4xl font-extrabold tracking-tight">
+      <div className="fixed inset-0 z-[101] flex items-center justify-center bg-black/80 backdrop-blur-sm transition-opacity duration-300">
+        <div className="w-full max-w-md transform rounded-lg bg-gradient-to-b from-slate-800 to-slate-900 p-8 shadow-2xl transition-all duration-300 ease-in-out">
+          <h2 className="mb-6 text-center text-4xl font-extrabold tracking-tight text-white">
             Game Over
           </h2>
-          <p className="mt-4 text-center text-lg">{message}</p>
-          <p className="mt-5 text-center text-sm font-medium text-gray-300">
-            Taking you back to the lobby...
+          <p className="mb-8 text-center text-xl font-medium text-slate-300">
+            {message}
           </p>
+          <div className="relative">
+            {/* <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-600"></div>
+            </div> */}
+            <div className="relative flex justify-center">
+              <span className="rounded-lg bg-gradient-to-b from-slate-800 to-slate-900 px-4 py-2 font-medium text-slate-400">
+                Redirecting you to the lobby
+              </span>
+            </div>
+          </div>
+          <div className="mt-6 flex justify-center">
+            <div className="h-2 w-64 overflow-hidden rounded-full bg-slate-700">
+              <div className="h-full w-full origin-left animate-[shrink_6s_ease-in-out] bg-emerald-500"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -267,6 +290,7 @@ export default function GameScreen() {
   const [players, setAllPlayers] = useState<Player[]>([]);
   const [allGuesses, setAllGuesses] = useState<Guess[]>([]);
   const [gameOverDialogMessage, setGameOverDialogMessage] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const { user, isLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -380,6 +404,8 @@ export default function GameScreen() {
       setAllPlayers(playersExceptCurrentUser);
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   }, [id, user?.ID, navigate]);
 
@@ -480,9 +506,21 @@ export default function GameScreen() {
     }
   };
 
+  if (loading)
+    return (
+      <div className="page-background flex min-h-screen items-center justify-center">
+        <Loader2 className="size-8 animate-spin" />
+      </div>
+    );
+
   return (
     <div className="page-background flex min-h-screen flex-col items-center justify-center py-32">
-      <h1 className="mb-6 text-4xl font-bold">Wordle Race</h1>
+      <div className="mb-6 flex flex-col items-center justify-center gap-1">
+        <h1 className="text-4xl font-extrabold tracking-tight">Wordle Race</h1>
+        <p className="text-sm font-medium text-gray-200">
+          Guess the word before your friends do!
+        </p>
+      </div>
       <GameOverDialog
         message={gameOverDialogMessage}
         setMessage={setGameOverDialogMessage}
@@ -495,16 +533,21 @@ export default function GameScreen() {
       />
       <Keyboard handleInput={handleInput} usedLetters={lettersUsed} />
       <button
-        className="text-red mt-6 text-sm font-medium text-red-600 hover:underline"
+        className="text-red my-8 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium hover:bg-red-700"
         onClick={handleQuit}
       >
         Quit Game
       </button>
 
-      <div className="mt-10">
-        <h2 className="text-center text-4xl font-extrabold tracking-tight">
-          Other Players
-        </h2>
+      <div>
+        <div className="mb-6 flex flex-col items-center justify-center gap-1">
+          <h2 className="text-center text-4xl font-extrabold tracking-tight">
+            Other Players
+          </h2>
+          <p className="text-sm font-medium text-gray-200">
+            See how your friends are doing!
+          </p>
+        </div>
         <OtherPlayers players={players} allGuesses={allGuesses} />
       </div>
     </div>
