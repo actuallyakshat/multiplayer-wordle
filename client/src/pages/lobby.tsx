@@ -158,9 +158,14 @@ export default function Lobby() {
         <h3 className="text-center text-lg font-semibold text-gray-600">
           Wordle Race
         </h3>
-        <h1 className="mb-6 mt-2 text-center text-4xl font-extrabold text-gray-800">
+        <h1 className="mt-2 text-center text-4xl font-extrabold text-gray-800">
           Lobby
         </h1>
+
+        <p className="mb-5 mt-3 text-center font-semibold text-emerald-700">
+          Game ID: {id}
+        </p>
+
         <div className="mb-8 flex flex-col items-center justify-center gap-4">
           {isCreator && (
             <button

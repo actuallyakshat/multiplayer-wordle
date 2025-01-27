@@ -498,7 +498,8 @@ func GuessWord(c *fiber.Ctx) error {
 	}
 
 	body.GuessWord = strings.TrimSpace(body.GuessWord)
-	if len(body.GuessWord) != 5 {
+
+	if len(body.GuessWord) != 5 || body.GuessWord == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "The guess word must be exactly 5 letters",
 		})

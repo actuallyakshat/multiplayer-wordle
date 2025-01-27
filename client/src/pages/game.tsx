@@ -459,7 +459,7 @@ export default function GameScreen() {
   const handleGuessSubmission = useCallback(async () => {
     if (currentAttemptNumber > 5) return;
     const currentGuess = guesses[currentAttemptNumber];
-    if (currentGuess.length != 5) return;
+    if (currentGuess.trim().length != 5) return;
 
     const isValidWord = validateGuess(currentGuess);
     if (!isValidWord) {
